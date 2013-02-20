@@ -4,6 +4,11 @@ mysql_connect('localhost', 'root', 'toor');
 mysql_select_db('geo');
 
 
+/**
+ * Controller logic.
+ * Each request must include a $_REQUEST['zip'].
+ * Example: ?zip=98290&{json, centroid, envelope}
+ */
 if (isset($_REQUEST['json'])) {
     echo getJSON($_REQUEST['zip']);
 } else if (isset($_REQUEST['centroid'])) {
@@ -12,10 +17,19 @@ if (isset($_REQUEST['json'])) {
     echo getEnvelope($_REQUEST['zip']);
 }
 
+
+/**
+ * @param $zip string The ZIP to envelope.
+ * @return string GeoJSON box surrounding the ZIP.
+ */
 function getEnvelope($zip)
 {
-    $query = "SELECT astext(envelope(SHAPE)) AS env FROM `zips` WHERE zcta5ce10 LIKE '$zip'";
+    $query = "SELECT astext(envelope(SHAPE)) AS env FROM zips WHERE zcta5ce10 LIKE '$zip'";
     $result = mysql_query($query);
+
+    if (!$result) {
+        die(mysql_error());
+    }
 
     // get row, there should only be one
     while ($row = mysql_fetch_object($result)) {
@@ -40,6 +54,11 @@ function getEnvelope($zip)
     return json_encode($jsonArray);
 }
 
+
+/**
+ * @param $zip string The zip code (e.g. 98290)
+ * @return string a GeoJSON encoded polygon of the ZIP
+ */
 function getJSON($zip)
 {
     $query = "SELECT AsText(shape) FROM zips WHERE zcta5ce10 = '$zip'";
@@ -85,16 +104,24 @@ function getJSON($zip)
 }
 
 
+/**
+ * @param $zip string The ZIP to find a centroid of.
+ * @return string A JSON string of format [lat, lon]
+ */
 function getCentroid($zip)
 {
     $query = "SELECT AsText(Centroid(shape)) AS point FROM zips WHERE zcta5ce10 = '$zip'";
     $result = mysql_query($query);
 
+    if (!$result) {
+        die(mysql_error());
+    }
+
     $point;
     while ($row = mysql_fetch_object($result)) {
         $point = $row->point;
     }
-    
+
     $point = str_replace('POINT(', '', $point);
     $point = str_replace(')', '', $point);
     $point = explode(' ', $point);
